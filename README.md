@@ -1,4 +1,4 @@
-go-metter
+go-meter
 =========
 
-go-metter
+go-meter
