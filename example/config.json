@@ -1,0 +1,39 @@
+{
+    "Remote": {
+        "Protocol": "http",
+        "Host": "localhost",
+        "Port": 8082
+    },
+    "Threads": {
+        "Count": 8,
+        "Delay": 0,
+        "Iteration": 50000
+    },
+    "Request": {
+        "Uri": "/",
+        "Method": "POST",
+        "Headers": [
+            "Content-Type=application/json"
+        ],
+        "Source": {
+            "FileName": "./example/source.json",
+            "Delimiter": "\n",
+            "RestartOnEOF": true
+        }
+    },
+    "Levels": {
+        "Success": {
+            "Timeout": 80,
+            "Codes": [
+                200
+            ]
+        },
+        "Warning": {
+            "Timeout": 130,
+            "Codes": [
+                204
+            ]
+        },
+        "Error": null
+    }
+}
