@@ -62,6 +62,7 @@ func checkStatus(levels settings.Levels, resp *http.Response, times time.Duratio
 
 }
 
+
 func StartThread(setts *settings.Settings, source *Source, c chan *Status){
 	iteration := setts.Threads.Iteration
 	header := map[string]string{}
@@ -87,7 +88,7 @@ func StartThread(setts *settings.Settings, source *Source, c chan *Status){
 				index--
 			}
 		}
-		var s *bytes.Buffer
+		var s *bytes.Buffer = bytes.NewBufferString("")
 		if strings.ToLower(setts.Request.Method) != "get" {
 			s = bytes.NewBuffer((*source)[index])
 		}

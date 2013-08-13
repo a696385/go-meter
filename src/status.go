@@ -86,10 +86,11 @@ func PrintStatus(){
 
 	SendSizePerSecondText := ""
 
+
 	if SendSizePerSecond > 1024*1024*1024 {
-		SendSizePerSecondText = strconv.FormatInt(SendSizePerSecond / 1024*1024*1024, 10) + " gb"
+		SendSizePerSecondText = strconv.FormatInt(SendSizePerSecond / 1024 / 1024 / 1024, 10) + " gb"
 	} else if SendSizePerSecond > 1024*1024 {
-		SendSizePerSecondText = strconv.FormatInt(SendSizePerSecond / 1024*1024, 10) + " mb"
+		SendSizePerSecondText = strconv.FormatInt(SendSizePerSecond / 1024 / 1024, 10) + " mb"
 	} else if SendSizePerSecond > 1024 {
 		SendSizePerSecondText = strconv.FormatInt(SendSizePerSecond / 1024, 10) + " kb"
 	} else {
