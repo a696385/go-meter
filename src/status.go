@@ -159,3 +159,9 @@ func counter(status *Status){
 	}
 
 }
+
+func counterWatcher(c chan *Status){
+	for status := range c {
+		counter(status)
+	}
+}

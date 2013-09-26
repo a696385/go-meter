@@ -17,6 +17,7 @@ var ClearCountersSeconds = flag.Int("clr", -1, "Clear counter seconds (do not cl
 var cpuprofile = flag.String("pprof", "", "write cpu profile to file")
 var threadsCount = flag.Int("t", -1, "Threads count")
 var configFileName = flag.String("cfg", "./config.json", "Config.json file name")
+var maxRequestPerSec = flag.Int("mrq", -1, "Max requests per second, -1 - not set")
 
 
 func main() {
@@ -54,14 +55,23 @@ func main() {
 		iteration = len(*source)
 	}
 	fmt.Println("Iteration count by thread: ", iteration)
+	if *maxRequestPerSec > 0 {
+		fmt.Println("Max request per second: ", *maxRequestPerSec)
+	}
+
 	iteration++
 
-	c := make(chan *Status, iteration * setts.Threads.Count)
+	var maxRequestsPerThread = *maxRequestPerSec / setts.Threads.Count;
+	c := make(chan *Status)
+	t := make(chan bool)
 	for i := 0; i < setts.Threads.Count; i++{
-		go StartThread(&setts, source, c)
+		go StartThread(&setts, maxRequestsPerThread, source, c, t)
 	}
-	for i := iteration * setts.Threads.Count; i>0 ; i-- {
-		counter(<-c)
+	go counterWatcher(c)
+
+
+	for i := 0; i < setts.Threads.Count; i++{
+		<- t
 	}
 	PrintStatus()
 	fmt.Println("Completed")

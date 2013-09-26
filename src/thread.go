@@ -63,7 +63,7 @@ func checkStatus(levels settings.Levels, resp *http.Response, times time.Duratio
 }
 
 
-func StartThread(setts *settings.Settings, source *Source, c chan *Status){
+func StartThread(setts *settings.Settings, maxRequestsPerThread int, source *Source, c chan *Status, t chan bool){
 	iteration := setts.Threads.Iteration
 	header := map[string]string{}
 	for _, s := range setts.Request.Headers {
@@ -78,7 +78,16 @@ func StartThread(setts *settings.Settings, source *Source, c chan *Status){
 		iteration = sourceLen
 	}
 	index := -1
+	var delay time.Duration = time.Nanosecond * 1
+	if maxRequestsPerThread > 0 {
+		delay = time.Duration(1000000000 / maxRequestsPerThread);
+	}
 	for ;iteration > 0; iteration-- {
+
+		if maxRequestsPerThread > 0 {
+			time.Sleep(delay)
+		}
+
 		status := &Status{false, false, false, nil, 0, false, nil, nil, nil}
 		index++
 		if index >= sourceLen {
@@ -122,7 +131,6 @@ func StartThread(setts *settings.Settings, source *Source, c chan *Status){
 			time.Sleep(time.Millisecond * sleep)
 		}
 	}
-	status := &Status{false, false, false, nil, 0, true, nil, nil, nil}
-	c <- status
+	t <- true
 }
 
