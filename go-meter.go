@@ -123,21 +123,17 @@ func main() {
 		go NewThread(config)
 	}
 
-	//Start Ctr+C listen
+	//Start SIGTERM listen
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	//Wait timers or SIGTERM
-	endTime := time.After(config.Duration)
 	select {
-	case <-endTime:
-		for i := 0; i < config.Threads; i++ {
-			config.WorkerQuit <- true
-		}
+	case <-time.After(config.Duration):
 	case <-signalChan:
-		for i := 0; i < config.Threads; i++ {
-			config.WorkerQuit <- true
-		}
+	}
+	for i := 0; i < config.Threads; i++ {
+		config.WorkerQuit <- true
 	}
 	//Wait for threads complete
 	for i := 0; i < config.Threads; i++ {
