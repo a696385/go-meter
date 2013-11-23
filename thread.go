@@ -34,7 +34,7 @@ func NewThread(config *Config) {
 				connection.Return()
 			} else {
 				//Create request object
-				req := getRequest(config.Method, config.Url, config.Source.GetNext(), config.Reconnect)
+				req := getRequest(config.Method, config.Url, config.Host, config.Source.GetNext(), config.Reconnect)
 				//For reconnect mode need disconnect
 				if config.Reconnect && connection.IsConnected() {
 					connection.Disconnect()
@@ -63,7 +63,7 @@ func NewThread(config *Config) {
 	}
 }
 
-func getRequest(method string, URL *url.URL, body *[]byte, reconnect bool) *http.Request {
+func getRequest(method string, URL *url.URL, host string, body *[]byte, reconnect bool) *http.Request {
 	header := map[string][]string{}
 	if reconnect {
 		header["Connection"] = []string{"close"}
@@ -75,7 +75,7 @@ func getRequest(method string, URL *url.URL, body *[]byte, reconnect bool) *http
 			Header:        header,
 			Body:          bytes.NewBuffer(*body),
 			ContentLength: int64(len(*body)),
-			Host:          URL.Host,
+			Host:          host,
 		}
 	} else {
 		//Use source data as URL request or original URL
@@ -96,7 +96,7 @@ func getRequest(method string, URL *url.URL, body *[]byte, reconnect bool) *http
 			Method: method,
 			URL:    r,
 			Header: header,
-			Host:   URL.Host,
+			Host:   host,
 		}
 	}
 }

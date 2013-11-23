@@ -36,6 +36,7 @@ type RequestStats struct {
 
 type Config struct {
 	Method            string
+	Host              string
 	Url               *url.URL
 	Connections       int
 	Threads           int
@@ -85,6 +86,7 @@ func main() {
 
 	config := &Config{
 		Method:         *_method,
+		Host:           URL.Host,
 		Url:            URL,
 		Connections:    *_connection,
 		Threads:        *_threads,
@@ -98,6 +100,11 @@ func main() {
 		WorkerQuited:   make(chan bool, *_threads),
 		StatsQuit:      make(chan bool, 2),
 		RequestStats:   make(chan *RequestStats),
+	}
+
+	if strings.Index(config.Host, ":") > -1 {
+		h := strings.SplitN(config.Host, ":", 2)
+		config.Host = h[0]
 	}
 
 	logUrl := config.Url.String()
@@ -116,6 +123,20 @@ func main() {
 	fmt.Print("\n")
 
 	config.ConnectionManager = NewConnectionManager(config)
+
+	//check any connect
+	anyConnected := false
+	for i := 0; i < config.Connections && !anyConnected; i++ {
+		connection := config.ConnectionManager.Get()
+		if connection.IsConnected() {
+			anyConnected = true
+		}
+		connection.Return()
+	}
+	if !anyConnected {
+		fmt.Printf("Can not connect to %s\n", config.Url.Host)
+		return
+	}
 
 	go StartStatsAggregator(config)
 
