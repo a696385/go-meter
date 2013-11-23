@@ -15,14 +15,14 @@ var source StatsSource
 var ConnectionErrors int32 = 0
 
 //Format with space prefix
-type SpancesFormat struct {
+type SpacesFormat struct {
 	data   interface{}
 	len    int
 	right  bool
 	format string
 }
 
-func (this SpancesFormat) String() string {
+func (this SpacesFormat) String() string {
 	if this.format == "" {
 		this.format = "%v"
 	}
@@ -76,12 +76,12 @@ func StartStatsAggregator(config *Config) {
 	verboseTimer := time.NewTicker(time.Duration(1) * time.Second)
 	if config.Verbose {
 		fmt.Printf("%s %s %s %s %s %s\n",
-			newSpancesFormatRightf("Second", 10, "%s"),
-			newSpancesFormatRightf("Total", 10, "%s"),
-			newSpancesFormatRightf("Req/sec", 10, "%s"),
-			newSpancesFormatRightf("Avg/sec", 10, "%s"),
-			newSpancesFormatRightf("In/sec", 10, "%s"),
-			newSpancesFormatRightf("Out/sec", 10, "%s"),
+			newSpacesFormatRightf("Second", 10, "%s"),
+			newSpacesFormatRightf("Total", 10, "%s"),
+			newSpacesFormatRightf("Req/sec", 10, "%s"),
+			newSpacesFormatRightf("Avg/sec", 10, "%s"),
+			newSpacesFormatRightf("In/sec", 10, "%s"),
+			newSpacesFormatRightf("Out/sec", 10, "%s"),
 		)
 	} else {
 		verboseTimer.Stop()
@@ -105,12 +105,12 @@ func StartStatsAggregator(config *Config) {
 				avg := time.Duration(avgMilliseconds) * time.Millisecond
 				//Print stats
 				fmt.Printf("%s %s %s %s %s %s\n",
-					newSpancesFormatRightf(roundToSecondDuration(time.Now().Sub(start)), 10, "%v"),
-					newSpancesFormatRightf(source.Requests, 10, "%d"),
-					newSpancesFormatRightf(perSecond.Requests, 10, "%d"),
-					newSpancesFormatRightf(avg, 10, "%v"),
-					newSpancesFormatRightf(Bites(perSecond.Readed), 10, "%s"),
-					newSpancesFormatRightf(Bites(perSecond.Writed), 10, "%s"),
+					newSpacesFormatRightf(roundToSecondDuration(time.Now().Sub(start)), 10, "%v"),
+					newSpacesFormatRightf(source.Requests, 10, "%d"),
+					newSpacesFormatRightf(perSecond.Requests, 10, "%d"),
+					newSpacesFormatRightf(avg, 10, "%v"),
+					newSpacesFormatRightf(Bites(perSecond.Readed), 10, "%s"),
+					newSpacesFormatRightf(Bites(perSecond.Writed), 10, "%s"),
 				)
 			}
 			//Clear data
@@ -178,15 +178,15 @@ func StartStatsAggregator(config *Config) {
 	}
 }
 
-func newSpancesFormat(data interface{}, len int) SpancesFormat {
-	return SpancesFormat{data, len, false, "%v"}
+func newSpacesFormat(data interface{}, len int) SpacesFormat {
+	return SpacesFormat{data, len, false, "%v"}
 }
-func newSpancesFormatf(data interface{}, len int, format string) SpancesFormat {
-	return SpancesFormat{data, len, false, format}
+func newSpacesFormatf(data interface{}, len int, format string) SpacesFormat {
+	return SpacesFormat{data, len, false, format}
 }
 
-func newSpancesFormatRightf(data interface{}, len int, format string) SpancesFormat {
-	return SpancesFormat{data, len, true, format}
+func newSpacesFormatRightf(data interface{}, len int, format string) SpacesFormat {
+	return SpacesFormat{data, len, true, format}
 }
 
 //Print all statistic
@@ -199,8 +199,8 @@ func PrintStats(w io.Writer, config *Config) {
 	}
 
 	//Print latency stats, traffic stats
-	fmt.Printf("Stats:      %v %v %v\n", newSpancesFormat("Min", 9), newSpancesFormat("Avg", 9), newSpancesFormat("Max", 9))
-	fmt.Printf("  Latency   %v %v %v\n", newSpancesFormat(source.Min, 9), newSpancesFormat(avg, 9), newSpancesFormat(source.Max, 9))
+	fmt.Printf("Stats:      %v %v %v\n", newSpacesFormat("Min", 9), newSpacesFormat("Avg", 9), newSpacesFormat("Max", 9))
+	fmt.Printf("  Latency   %v %v %v\n", newSpacesFormat(source.Min, 9), newSpacesFormat(avg, 9), newSpacesFormat(source.Max, 9))
 	fmt.Printf("  %d requests in %v", source.Requests, source.Work)
 	//Errors
 	if source.ReadErrors > 0 || source.WriteErrors > 0 && source.Requests > 0 {
@@ -225,7 +225,7 @@ func PrintStats(w io.Writer, config *Config) {
 		sort.Ints(keys)
 		for _, key := range keys {
 			value := source.Codes[key]
-			fmt.Printf("     %d    %v%%\n", key, newSpancesFormatf(getPercent(value, source.Requests), 9, "%.2f"))
+			fmt.Printf("     %d    %v%%\n", key, newSpacesFormatf(getPercent(value, source.Requests), 9, "%.2f"))
 		}
 
 		//Sort latency
@@ -295,7 +295,7 @@ func PrintStats(w io.Writer, config *Config) {
 		}
 		for index, key := range duractionRangesKeys {
 			value := duractionRangesValues[index]
-			fmt.Printf("     %v    %v%%\n", newSpancesFormatf(key, maxLen, "%s"), newSpancesFormatf(getPercent(value, (source.Requests-source.Skiped)), 9, "%.2f"))
+			fmt.Printf("     %v    %v%%\n", newSpacesFormatf(key, maxLen, "%s"), newSpacesFormatf(getPercent(value, (source.Requests-source.Skiped)), 9, "%.2f"))
 		}
 	}
 
