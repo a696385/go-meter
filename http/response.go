@@ -3,7 +3,6 @@ package http
 import (
 	"bufio"
 	"errors"
-	"net/textproto"
 	"strconv"
 	"strings"
 )
@@ -19,16 +18,33 @@ type Response struct {
 	BufferSize int64
 }
 
+func readLine(r *bufio.Reader) (string, error) {
+	var line []byte
+	for {
+		l, more, err := r.ReadLine()
+		if err != nil {
+			return "", err
+		}
+		if line == nil && !more {
+			return string(l), nil
+		}
+		line = append(line, l...)
+		if !more {
+			break
+		}
+	}
+	return string(line), nil
+}
+
 func ReadResponse(r *bufio.Reader) (*Response, error) {
-	tp := textproto.NewReader(r)
 	resp := &Response{}
 
-	line, err := tp.ReadLine()
+	line, err := readLine(r)
 	if err != nil {
 		return nil, err
 	}
 	f := strings.SplitN(line, " ", 3)
-	resp.BufferSize += int64(len(f) + 2)
+	resp.BufferSize += int64(len(line) + 2)
 
 	if len(f) < 2 {
 		return nil, errors.New("Response Header ERROR")
@@ -46,7 +62,7 @@ func ReadResponse(r *bufio.Reader) (*Response, error) {
 
 	resp.Header = make(map[string][]string)
 	for {
-		line, err := tp.ReadLine()
+		line, err := readLine(r)
 		if err != nil {
 			return nil, errors.New("Response Header ERROR")
 		}
@@ -66,8 +82,10 @@ func ReadResponse(r *bufio.Reader) (*Response, error) {
 		}
 	}
 
-	buff := make([]byte, resp.ContentLength)
-	r.Read(buff)
+	_, err = r.Peek(int(resp.ContentLength))
+	if err != nil {
+		return nil, err
+	}
 	resp.BufferSize += int64(resp.ContentLength)
 
 	return resp, nil
