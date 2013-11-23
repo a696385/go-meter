@@ -13,7 +13,7 @@ import (
 
 var (
 	_method         = flag.String("m", "GET", "HTTP Metod")
-	_url            = flag.String("u", "http://localhost:3001/", "URL")
+	_url            = flag.String("u", "http://localhost/", "URL")
 	_connection     = flag.Int("c", 100, "Connections count")
 	_threads        = flag.Int("t", 12, "Threads count")
 	_mrq            = flag.Int("mrq", -1, "Max request per second")
