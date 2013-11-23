@@ -34,7 +34,7 @@ func NewThread(config *Config) {
 				connection.Return()
 			} else {
 				//Create request object
-				req := getRequest(config.Method, config.Url, config.Source.GetNext())
+				req := getRequest(config.Method, config.Url, config.Source.GetNext(), config.Reconnect)
 				//For reconnect mode need disconnect
 				if config.Reconnect && connection.IsConnected() {
 					connection.Disconnect()
@@ -63,14 +63,16 @@ func NewThread(config *Config) {
 	}
 }
 
-func getRequest(method string, URL *url.URL, body *[]byte) *http.Request {
+func getRequest(method string, URL *url.URL, body *[]byte, reconnect bool) *http.Request {
+	header := map[string][]string{}
+	if reconnect {
+		header["Connection"] = []string{"close"}
+	}
 	if method == "POST" || method == "PUT" {
 		return &http.Request{
-			Method: method,
-			URL:    URL,
-			Header: map[string][]string{
-				"Connection": {"keep-alive"},
-			},
+			Method:        method,
+			URL:           URL,
+			Header:        header,
 			Body:          bytes.NewBuffer(*body),
 			ContentLength: int64(len(*body)),
 			Host:          URL.Host,
@@ -93,10 +95,8 @@ func getRequest(method string, URL *url.URL, body *[]byte) *http.Request {
 		return &http.Request{
 			Method: method,
 			URL:    r,
-			Header: map[string][]string{
-				"Connection": {"keep-alive"},
-			},
-			Host: URL.Host,
+			Header: header,
+			Host:   URL.Host,
 		}
 	}
 }
