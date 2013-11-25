@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -13,9 +14,9 @@ import (
 
 var (
 	_method         = flag.String("m", "GET", "HTTP Metod")
-	_url            = flag.String("u", "http://localhost/", "URL")
-	_connection     = flag.Int("c", 100, "Connections count")
-	_threads        = flag.Int("t", 12, "Threads count")
+	_url            = flag.String("u", "http://localhost", "URL")
+	_connection     = flag.Int("c", 64, "Connections count")
+	_threads        = flag.Int("t", 4, "Threads count")
 	_mrq            = flag.Int("mrq", -1, "Max request per second")
 	_source         = flag.String("s", "", "POST/PUT Body source file with \"\\n\" delimeter or URLs on GET/DELETE")
 	_duration       = flag.Duration("d", time.Duration(30)*time.Second, "Test duration")
@@ -23,6 +24,7 @@ var (
 	_verbose        = flag.Bool("v", false, "Live stats view")
 	_excludeSeconds = flag.Duration("es", time.Duration(0)*time.Second, "Exclude first seconds from stats")
 	_help           = flag.Bool("h", false, "Help")
+	_cpuprofile     = flag.String("cpuprofile", "", "write cpu profile to file")
 )
 
 type RequestStats struct {
@@ -82,6 +84,16 @@ func main() {
 	if err != nil {
 		fmt.Printf("ERROR: URL is broken %s\n", *_url)
 		return
+	}
+
+	if *_cpuprofile != "" {
+		f, err := os.Create(*_cpuprofile)
+		if err != nil {
+			fmt.Printf("Can not start cpu proffile %v\n", err)
+			return
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 
 	config := &Config{

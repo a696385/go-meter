@@ -1,11 +1,19 @@
 package http
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
+	"io"
 	"strconv"
 	"strings"
 )
+
+type LineReader struct {
+	r        io.Reader
+	buffer   []byte
+	Size     int
+	Position int
+}
 
 type Response struct {
 	Status     string
@@ -18,33 +26,84 @@ type Response struct {
 	BufferSize int64
 }
 
-func readLine(r *bufio.Reader) (string, error) {
-	var line []byte
+func (this *LineReader) read() error {
+	var buff []byte = make([]byte, 1024)
 	for {
-		l, more, err := r.ReadLine()
+		n, err := this.r.Read(buff)
 		if err != nil {
-			return "", err
+			return err
 		}
-		if line == nil && !more {
-			return string(l), nil
-		}
-		line = append(line, l...)
-		if !more {
+		this.Size += n
+		this.buffer = append(this.buffer[:], buff[:n]...)
+		if n < len(buff) {
 			break
 		}
 	}
-	return string(line), nil
+	return nil
 }
 
-func ReadResponse(r *bufio.Reader) (*Response, error) {
+func (this *LineReader) getLine() (string, bool) {
+	if i := bytes.IndexByte(this.buffer, '\n'); i >= 0 {
+		this.Position += i
+		line := this.buffer[:i-1]
+		this.buffer = this.buffer[i+1:]
+		return string(line), true
+	}
+	return "", false
+}
+
+func (this *LineReader) ReadLine() (string, error) {
+	line, ok := this.getLine()
+	if ok {
+		return line, nil
+	}
+	for {
+		err := this.read()
+		if err != nil {
+			return "", err
+		}
+		line, ok := this.getLine()
+		if ok {
+			return line, nil
+		}
+	}
+}
+
+func (this *LineReader) Seek(n int) error {
+	if this.Position+n < this.Size {
+		return nil
+	}
+	n = this.Position + n
+	r := this.Position
+	for {
+		size := 1024
+		if r+1024 > n {
+			size = n - r
+		}
+		buff := make([]byte, size)
+		readed, err := this.r.Read(buff)
+		if err != nil {
+			return err
+		}
+		this.buffer = append(this.buffer[:], buff[:readed]...)
+		this.Size += readed
+		r += readed
+		if r >= n {
+			break
+		}
+	}
+	return nil
+}
+
+func ReadResponse(r io.Reader) (*Response, error) {
+	reader := &LineReader{r: r}
 	resp := &Response{}
 
-	line, err := readLine(r)
+	line, err := reader.ReadLine()
 	if err != nil {
 		return nil, err
 	}
 	f := strings.SplitN(line, " ", 3)
-	resp.BufferSize += int64(len(line) + 2)
 
 	if len(f) < 2 {
 		return nil, errors.New("Response Header ERROR")
@@ -62,11 +121,10 @@ func ReadResponse(r *bufio.Reader) (*Response, error) {
 
 	resp.Header = make(map[string][]string)
 	for {
-		line, err := readLine(r)
+		line, err := reader.ReadLine()
 		if err != nil {
 			return nil, errors.New("Response Header ERROR")
 		}
-		resp.BufferSize += int64(len(line) + 2)
 		if len(line) == 0 {
 			break
 		} else {
@@ -81,12 +139,10 @@ func ReadResponse(r *bufio.Reader) (*Response, error) {
 			resp.ContentLength = i
 		}
 	}
-
-	_, err = r.Peek(int(resp.ContentLength))
+	err = reader.Seek(int(resp.ContentLength))
 	if err != nil {
 		return nil, err
 	}
-	resp.BufferSize += int64(resp.ContentLength)
-
+	resp.BufferSize = int64(reader.Size)
 	return resp, nil
 }

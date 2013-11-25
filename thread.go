@@ -124,7 +124,7 @@ func writeSocket(connection *Connection, req *http.Request, read chan *RequestSt
 		return
 	}
 	//Read response
-	res, err := http.ReadResponse(bufio.NewReader(conn))
+	res, err := http.ReadResponse(conn)
 	if err != nil {
 		result.ReadError = err
 		return
