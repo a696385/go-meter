@@ -52,6 +52,7 @@ type Config struct {
 	WorkerQuit        chan bool
 	WorkerQuited      chan bool
 	StatsQuit         chan bool
+	StatsQuited       chan bool
 	RequestStats      chan *RequestStats
 }
 
@@ -110,8 +111,9 @@ func main() {
 		Duration:       *_duration,
 		WorkerQuit:     make(chan bool, *_threads),
 		WorkerQuited:   make(chan bool, *_threads),
-		StatsQuit:      make(chan bool, 2),
-		RequestStats:   make(chan *RequestStats),
+		StatsQuit:      make(chan bool, 1),
+		StatsQuited:    make(chan bool, 1),
+		RequestStats:   make(chan *RequestStats, *_connection*2),
 	}
 
 	if strings.Index(config.Host, ":") > -1 {
@@ -175,6 +177,7 @@ func main() {
 
 	//Stop stats aggregator
 	config.StatsQuit <- true
+
 	//Close connections
 	for i := 0; i < config.Connections; i++ {
 		connection := config.ConnectionManager.Get()
@@ -184,7 +187,7 @@ func main() {
 		connection.conn.Close()
 	}
 	//Wait stats aggregator complete
-	<-config.StatsQuit
+	<-config.StatsQuited
 	//Print result
 	PrintStats(os.Stdout, config)
 }

@@ -9,7 +9,10 @@ import (
 )
 
 //Statistic data
-var source StatsSource
+var source StatsSource = StatsSource{
+	Codes:           make(map[int]int),
+	DurationPercent: make(map[time.Duration]int),
+}
 
 //Total connection error
 var ConnectionErrors int32 = 0
@@ -85,11 +88,6 @@ func StartStatsAggregator(config *Config) {
 		)
 	} else {
 		verboseTimer.Stop()
-	}
-
-	source = StatsSource{
-		Codes:           make(map[int]int),
-		DurationPercent: make(map[time.Duration]int),
 	}
 
 	perSecond := StatsSourcePerSecond{}
@@ -172,7 +170,7 @@ func StartStatsAggregator(config *Config) {
 				fmt.Println(s)
 			}
 			//Confirm exit
-			config.StatsQuit <- true
+			config.StatsQuited <- true
 			return
 		}
 	}
