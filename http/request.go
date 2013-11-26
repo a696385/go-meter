@@ -1,10 +1,11 @@
 package http
 
 import (
-	"bufio"
+	_ "bufio"
 	"fmt"
 	"io"
 	"net/url"
+	"time"
 )
 
 type Request struct {
@@ -14,12 +15,13 @@ type Request struct {
 
 	Header map[string][]string
 
-	Body          io.Reader
+	Body          []byte
 	ContentLength int64
 
 	Host string
 
 	BufferSize int64
+	Created    time.Time
 }
 
 func (req *Request) Write(w io.Writer) error {
@@ -42,14 +44,14 @@ func (req *Request) Write(w io.Writer) error {
 		req.URL.RequestURI(),
 		headers,
 	)
+
 	_, err := io.WriteString(w, pocket)
 	if err != nil {
 		return err
 	}
 	if req.Method == "POST" || req.Method == "PUT" {
 		req.BufferSize = req.ContentLength
-		bodyReader := bufio.NewReader(req.Body)
-		_, err := bodyReader.WriteTo(w)
+		_, err = w.Write(req.Body)
 		if err != nil {
 			return err
 		}

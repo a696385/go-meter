@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"github.com/a696385/go-meter/http"
 	"net/url"
 	"os"
-	"sync/atomic"
 	"time"
 )
 
@@ -15,11 +12,12 @@ func NewThread(config *Config) {
 	timerAllow := time.NewTicker(time.Duration(250) * time.Millisecond)
 	allow := int32(config.MRQ / 4 / config.Threads)
 	if config.MRQ == -1 {
-		allow = 2147483647
+		allow = -1
 	} else if allow <= 0 {
 		allow = 1
+		timerAllow.Stop()
+		timerAllow.C = nil
 	}
-	var connectionErrors int32 = 0
 	currentAllow := allow
 	for {
 		select {
@@ -27,35 +25,22 @@ func NewThread(config *Config) {
 		case <-timerAllow.C:
 			currentAllow = allow
 		//Get free tcp connection
-		case connection := <-config.ConnectionManager.conns:
-			currentAllow--
+		case connection := <-config.ConnectionManager.C:
+			if config.MRQ != -1 {
+				currentAllow--
+			}
 			//Return connection to pool if allowed request is 0
-			if currentAllow < 0 {
-				connection.Return()
-			} else {
+			if currentAllow > 0 || config.MRQ == -1 {
+				connection.Take()
 				//Create request object
-				req := getRequest(config.Method, config.Url, config.Host, config.Source.GetNext(), config.Reconnect)
-				//For reconnect mode need disconnect
-				if config.Reconnect && connection.IsConnected() {
-					connection.Disconnect()
-				}
-				//Connect to server if connection lost
-				if !connection.IsConnected() {
-					if connection.Dial() != nil {
-						connectionErrors++
-					}
-				}
+				req := getRequest(config.Method, config.Url, config.Host, config.Source.GetNext())
 				//Send request if we connected
-				if connection.IsConnected() {
-					go writeSocket(connection, req, config.RequestStats)
-				} else {
-					connection.Return()
-				}
+				go connection.Exec(req, config.RequestStats)
+			} else {
+				connection.Return()
 			}
 		//Wait exit event
 		case <-config.WorkerQuit:
-			//Store errors
-			atomic.AddInt32(&ConnectionErrors, connectionErrors)
 			//Complete exit
 			config.WorkerQuited <- true
 			return
@@ -63,19 +48,18 @@ func NewThread(config *Config) {
 	}
 }
 
-func getRequest(method string, URL *url.URL, host string, body *[]byte, reconnect bool) *http.Request {
+func getRequest(method string, URL *url.URL, host string, body *[]byte) *http.Request {
 	header := map[string][]string{}
-	if reconnect {
-		header["Connection"] = []string{"close"}
-	}
+
 	if method == "POST" || method == "PUT" {
 		return &http.Request{
 			Method:        method,
 			URL:           URL,
 			Header:        header,
-			Body:          bytes.NewBuffer(*body),
+			Body:          *body,
 			ContentLength: int64(len(*body)),
 			Host:          host,
+			Created:       time.Now(),
 		}
 	} else {
 		//Use source data as URL request or original URL
@@ -93,47 +77,11 @@ func getRequest(method string, URL *url.URL, host string, body *[]byte, reconnec
 			r = URL
 		}
 		return &http.Request{
-			Method: method,
-			URL:    r,
-			Header: header,
-			Host:   host,
+			Method:  method,
+			URL:     r,
+			Header:  header,
+			Host:    host,
+			Created: time.Now(),
 		}
 	}
-}
-
-func writeSocket(connection *Connection, req *http.Request, read chan *RequestStats) {
-	result := &RequestStats{}
-	//Anyway return connection and send respose
-	defer func() {
-		connection.Return()
-		read <- result
-	}()
-
-	now := time.Now()
-	conn := connection.conn
-	bw := bufio.NewWriter(conn)
-	//Write request
-	err := req.Write(bw)
-	if err != nil {
-		result.WriteError = err
-		return
-	}
-	err = bw.Flush()
-	if err != nil {
-		result.WriteError = err
-		return
-	}
-	//Read response
-	res, err := http.ReadResponse(conn)
-	if err != nil {
-		result.ReadError = err
-		return
-	}
-	//Store info
-	result.Duration = time.Now().Sub(now)
-	result.NetOut = req.BufferSize
-	result.NetIn = res.BufferSize
-	result.ResponseCode = res.StatusCode
-	//Free memory
-	req.Body = nil
 }

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -20,7 +21,6 @@ var (
 	_mrq            = flag.Int("mrq", -1, "Max request per second")
 	_source         = flag.String("s", "", "POST/PUT Body source file with \"\\n\" delimeter or URLs on GET/DELETE")
 	_duration       = flag.Duration("d", time.Duration(30)*time.Second, "Test duration")
-	_reconnect      = flag.Bool("reconnect", false, "Reconnect for every request")
 	_verbose        = flag.Bool("v", false, "Live stats view")
 	_excludeSeconds = flag.Duration("es", time.Duration(0)*time.Second, "Exclude first seconds from stats")
 	_help           = flag.Bool("h", false, "Help")
@@ -30,8 +30,6 @@ var (
 type RequestStats struct {
 	ResponseCode int
 	Duration     time.Duration
-	ReadError    error
-	WriteError   error
 	NetIn        int64
 	NetOut       int64
 }
@@ -43,7 +41,6 @@ type Config struct {
 	Connections       int
 	Threads           int
 	MRQ               int
-	Reconnect         bool
 	Verbose           bool
 	ExcludeSeconds    time.Duration
 	Source            *Source
@@ -104,7 +101,6 @@ func main() {
 		Connections:    *_connection,
 		Threads:        *_threads,
 		MRQ:            *_mrq,
-		Reconnect:      *_reconnect,
 		Verbose:        *_verbose,
 		ExcludeSeconds: *_excludeSeconds,
 		Source:         sourceData,
@@ -113,7 +109,7 @@ func main() {
 		WorkerQuited:   make(chan bool, *_threads),
 		StatsQuit:      make(chan bool, 1),
 		StatsQuited:    make(chan bool, 1),
-		RequestStats:   make(chan *RequestStats, *_connection*2),
+		RequestStats:   make(chan *RequestStats, *_connection*512),
 	}
 
 	if strings.Index(config.Host, ":") > -1 {
@@ -121,31 +117,28 @@ func main() {
 		config.Host = h[0]
 	}
 
+	runtime.GOMAXPROCS(*_threads)
+
 	logUrl := config.Url.String()
 	if *_method != "POST" && *_method == "PUT" {
 		logUrl = config.Url.Host
 	}
 
 	if config.MRQ == -1 {
-		fmt.Printf("Running test threads: %d, connections: %d in %v %s %s", config.Threads, config.Connections, config.Duration, config.Method, logUrl)
+		fmt.Printf("Running test threads: %d, connections: %d in %v %s %s\n", *_threads, config.Connections, config.Duration, config.Method, logUrl)
 	} else {
-		fmt.Printf("Running test threads: %d, connections: %d, max req/sec: %d, in %v %s %s", config.Threads, config.Connections, config.MRQ, config.Duration, config.Method, logUrl)
+		fmt.Printf("Running test threads: %d, connections: %d, max req/sec: %d, in %v %s %s\n", *_threads, config.Connections, config.MRQ, config.Duration, config.Method, logUrl)
 	}
-	if config.Reconnect {
-		fmt.Printf(" with reconnect")
-	}
-	fmt.Print("\n")
 
 	config.ConnectionManager = NewConnectionManager(config)
 
 	//check any connect
 	anyConnected := false
 	for i := 0; i < config.Connections && !anyConnected; i++ {
-		connection := config.ConnectionManager.Get()
+		connection := config.ConnectionManager.conns[i]
 		if connection.IsConnected() {
 			anyConnected = true
 		}
-		connection.Return()
 	}
 	if !anyConnected {
 		fmt.Printf("Can not connect to %s\n", config.Url.Host)
@@ -177,10 +170,9 @@ func main() {
 
 	//Stop stats aggregator
 	config.StatsQuit <- true
-
 	//Close connections
 	for i := 0; i < config.Connections; i++ {
-		connection := config.ConnectionManager.Get()
+		connection := config.ConnectionManager.conns[i]
 		if !connection.IsConnected() {
 			continue
 		}

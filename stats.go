@@ -15,7 +15,11 @@ var source StatsSource = StatsSource{
 }
 
 //Total connection error
-var ConnectionErrors int32 = 0
+var (
+	ConnectionErrors int32 = 0
+	ReadErrors       int32 = 0
+	WriteErrors      int32 = 0
+)
 
 //Format with space prefix
 type SpacesFormat struct {
@@ -100,7 +104,8 @@ func StartStatsAggregator(config *Config) {
 			if perSecond.Requests-perSecond.Skiped > 0 && config.Verbose {
 				//Get Avg response time
 				avgMilliseconds := perSecond.Sum / int64(perSecond.Requests-perSecond.Skiped)
-				avg := time.Duration(avgMilliseconds) * time.Millisecond
+				avgMilliseconds = (int64(avgMilliseconds) / 10000) * 10000
+				avg := time.Duration(avgMilliseconds) * time.Nanosecond
 				//Print stats
 				fmt.Printf("%s %s %s %s %s %s\n",
 					newSpacesFormatRightf(roundToSecondDuration(time.Now().Sub(start)), 10, "%v"),
@@ -118,14 +123,6 @@ func StartStatsAggregator(config *Config) {
 			allowStore = true
 		//Request response
 		case res := <-config.RequestStats:
-			//Check errors
-			if res.ReadError != nil {
-				source.ReadErrors++
-				continue
-			} else if res.WriteError != nil {
-				source.WriteErrors++
-				continue
-			}
 			//Add counters
 			source.Requests++
 			perSecond.Requests++
@@ -141,7 +138,7 @@ func StartStatsAggregator(config *Config) {
 				continue
 			}
 			//Add sum duration in milliseconds
-			sum := int64(res.Duration.Seconds() * 1000)
+			sum := int64(res.Duration.Nanoseconds())
 			source.Sum += sum
 			perSecond.Sum += sum
 
@@ -193,7 +190,8 @@ func PrintStats(w io.Writer, config *Config) {
 	avg := time.Duration(0)
 	if source.Requests-source.Skiped > 0 {
 		avgMilliseconds := source.Sum / int64(source.Requests-source.Skiped)
-		avg = time.Duration(avgMilliseconds) * time.Millisecond
+		avgMilliseconds = (int64(avgMilliseconds) / 10000) * 10000
+		avg = time.Duration(avgMilliseconds) * time.Nanosecond
 	}
 
 	//Print latency stats, traffic stats
@@ -325,12 +323,12 @@ func humanateBytes(s int64, base float64, sizes []string) string {
 
 func Bytes(s int64) string {
 	sizes := []string{"B", "KB", "MB", "GB", "TB", "PB", "EB"}
-	return humanateBytes(int64(s), 1000, sizes)
+	return humanateBytes(int64(s), 1024, sizes)
 }
 
 func Bites(s int64) string {
 	sizes := []string{"Bit", "KBit", "MBit", "GBit", "TBit", "PBit", "EBit"}
-	return humanateBytes(int64(s*8), 1000, sizes)
+	return humanateBytes(int64(s*8), 1024, sizes)
 }
 
 func getPercent(c int, max int) float64 {
