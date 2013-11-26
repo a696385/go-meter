@@ -59,7 +59,6 @@ func getRequest(method string, URL *url.URL, host string, body *[]byte) *http.Re
 			Body:          *body,
 			ContentLength: int64(len(*body)),
 			Host:          host,
-			Created:       time.Now(),
 		}
 	} else {
 		//Use source data as URL request or original URL
@@ -77,11 +76,10 @@ func getRequest(method string, URL *url.URL, host string, body *[]byte) *http.Re
 			r = URL
 		}
 		return &http.Request{
-			Method:  method,
-			URL:     r,
-			Header:  header,
-			Host:    host,
-			Created: time.Now(),
+			Method: method,
+			URL:    r,
+			Header: header,
+			Host:   host,
 		}
 	}
 }

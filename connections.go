@@ -34,7 +34,7 @@ func NewConnectionManager(config *Config) (result *ConnectionManager) {
 	for i := 0; i < config.Connections; i++ {
 		connection := &Connection{
 			manager:   result,
-			queue:     make(chan *http.Request, 256),
+			queue:     make(chan *http.Request, 1),
 			responses: config.RequestStats,
 		}
 		result.conns[i] = connection
@@ -96,6 +96,7 @@ func (this *Connection) Return() {
 
 func (this *Connection) Exec(req *http.Request, resp chan *RequestStats) {
 	this.queue <- req
+	req.Created = time.Now()
 	err := req.Write(this.conn)
 	if err != nil {
 		atomic.AddInt32(&WriteErrors, 1)
