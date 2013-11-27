@@ -6,6 +6,7 @@ import (
 	"net/textproto"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Response struct {
@@ -20,18 +21,19 @@ type Response struct {
 	BufferSize int64
 }
 
-func ReadResponse(r *bufio.Reader, tr *textproto.Reader) (*Response, error) {
+func ReadResponse(r *bufio.Reader, tr *textproto.Reader) (time.Time, *Response, error) {
 	resp := &Response{}
 
 	line, err := tr.ReadLine()
+	t := time.Now()
 	if err != nil {
-		return nil, err
+		return t, nil, err
 	}
 	resp.BufferSize += int64(len(line) + 2)
 	f := strings.SplitN(line, " ", 3)
 
 	if len(f) < 2 {
-		return nil, errors.New("Response Header ERROR")
+		return t, nil, errors.New("Response Header ERROR")
 	}
 
 	reasonPhrase := ""
@@ -41,7 +43,7 @@ func ReadResponse(r *bufio.Reader, tr *textproto.Reader) (*Response, error) {
 	resp.Status = f[1] + " " + reasonPhrase
 	resp.StatusCode, err = strconv.Atoi(f[1])
 	if err != nil {
-		return nil, errors.New("malformed HTTP status code")
+		return t, nil, errors.New("malformed HTTP status code")
 	}
 
 	resp.Header = make(map[string][]string)
@@ -49,7 +51,7 @@ func ReadResponse(r *bufio.Reader, tr *textproto.Reader) (*Response, error) {
 		line, err := tr.ReadLine()
 		resp.BufferSize += int64(len(line) + 2)
 		if err != nil {
-			return nil, errors.New("Response Header ERROR")
+			return t, nil, errors.New("Response Header ERROR")
 		}
 		if len(line) == 0 {
 			break
@@ -74,7 +76,7 @@ func ReadResponse(r *bufio.Reader, tr *textproto.Reader) (*Response, error) {
 			p := make([]byte, resp.ContentLength-int64(read))
 			n, err := r.Read(p)
 			if err != nil {
-				return nil, err
+				return t, nil, err
 			}
 			read += n
 			if int64(read) == resp.ContentLength {
@@ -83,5 +85,5 @@ func ReadResponse(r *bufio.Reader, tr *textproto.Reader) (*Response, error) {
 		}
 	}
 	resp.BufferSize += int64(resp.ContentLength)
-	return resp, nil
+	return t, resp, nil
 }

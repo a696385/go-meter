@@ -104,8 +104,7 @@ func StartStatsAggregator(config *Config) {
 			if perSecond.Requests-perSecond.Skiped > 0 && config.Verbose {
 				//Get Avg response time
 				avgMilliseconds := perSecond.Sum / int64(perSecond.Requests-perSecond.Skiped)
-				avgMilliseconds = (int64(avgMilliseconds) / 10000) * 10000
-				avg := time.Duration(avgMilliseconds) * time.Nanosecond
+				avg := time.Duration(avgMilliseconds) * time.Millisecond
 				//Print stats
 				fmt.Printf("%s %s %s %s %s %s\n",
 					newSpacesFormatRightf(roundToSecondDuration(time.Now().Sub(start)), 10, "%v"),
@@ -138,7 +137,7 @@ func StartStatsAggregator(config *Config) {
 				continue
 			}
 			//Add sum duration in milliseconds
-			sum := int64(res.Duration.Nanoseconds())
+			sum := int64(res.Duration.Seconds() * 1000)
 			source.Sum += sum
 			perSecond.Sum += sum
 
@@ -190,8 +189,7 @@ func PrintStats(w io.Writer, config *Config) {
 	avg := time.Duration(0)
 	if source.Requests-source.Skiped > 0 {
 		avgMilliseconds := source.Sum / int64(source.Requests-source.Skiped)
-		avgMilliseconds = (int64(avgMilliseconds) / 10000) * 10000
-		avg = time.Duration(avgMilliseconds) * time.Nanosecond
+		avg = time.Duration(avgMilliseconds) * time.Millisecond
 	}
 
 	//Print latency stats, traffic stats
