@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/a696385/go-meter/http"
 	"net"
 	"net/textproto"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -34,12 +36,13 @@ func NewConnectionManager(config *Config) (result *ConnectionManager) {
 	for i := 0; i < config.Connections; i++ {
 		connection := &Connection{
 			manager:   result,
-			queue:     make(chan *http.Request, 128),
+			queue:     make(chan *http.Request, 120),
 			responses: config.RequestStats,
 		}
 		result.conns[i] = connection
-		if connection.Dial() != nil {
+		if err := connection.Dial(); err != nil {
 			atomic.AddInt32(&ConnectionErrors, 1)
+			fmt.Printf("ERROR: %s\n", err.Error())
 		} else {
 			connection.Return()
 		}
@@ -51,7 +54,11 @@ func (this *Connection) Dial() error {
 	if this.IsConnected() {
 		return nil
 	}
-	conn, err := net.Dial("tcp4", this.manager.config.Url.Host)
+	host := this.manager.config.Url.Host
+	if !strings.Contains(host, ":") {
+		host += ":80"
+	}
+	conn, err := net.Dial("tcp4", host)
 	if err == nil {
 		this.conn = conn
 		bf := bufio.NewReader(conn)
